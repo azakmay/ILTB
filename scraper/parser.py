@@ -1,4 +1,9 @@
+import re
+from collections import OrderedDict
+
 import boto3
+from bs4 import BeautifulSoup
+
 
 def read_in_file(bucket, path):
     s3_client = boto3.client('s3')
@@ -14,13 +19,43 @@ def list_files(bucket, path):
     return s3_response_object['Contents']
 
 
+def parse(soup):
+    conversation = []
+    names = []
+    for item in soup.find_all('p'):
+        if ':' in item.text and '[' in item.text:
+            s = item.text.split(":")
+            name = s[0]
+            names.append(name)
+        conversation.extend([item.text])
+    interviewers = list(OrderedDict.fromkeys(names).keys())
+    conversation = " ".join(conversation)
+    return {'interviewers': interviewers, 'names': names, 'conversation': conversation}
 
-class ILTBParser:
-    def __init__(self, soup):
-        self.soup = soup
 
-    def parse(self):
-        pass
+def process(interviewers, names, conversation):
+    if len(interviewers) != 2:
+        return None
+    string = f"(?:{interviewers[0]}|{interviewers[1]}):\s*\[\d{{2}}:\d{{2}}:\d{{2}}\]\s*"
+    paragraphs = re.split(string, conversation)
+    transcript = []
+    # Want to skip the introduction
+    for n, p in zip(names[1:], paragraphs[2:]):
+        d = {'name': n, 'response': p}
+        transcript.append(d)
 
-    def process(self):
-        pass
+    return transcript
+
+
+def transform_html_to_json():
+    bucket = 'scrape-projects'
+    for file in list_files(bucket, path='colossus-transcripts/html/'):
+        html = read_in_file(bucket, file['Key'])
+        soup = BeautifulSoup(html, 'html.parser')
+        parsed = parse(soup)
+        transcript = process(parsed['interviewers'], parsed['names'], parsed['conversation'])
+        print(transcript)
+
+
+if __name__ == '__main__':
+    transform_html_to_json()
