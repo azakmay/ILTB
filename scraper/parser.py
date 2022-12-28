@@ -6,7 +6,7 @@ from collections import OrderedDict
 import boto3
 from bs4 import BeautifulSoup
 
-from itlb_scraper import upload_html
+from itlb_scraper import upload_html, _check_exists
 
 logger = logging.getLogger(__name__)
 
@@ -30,24 +30,33 @@ def parse(soup):
     names = []
     for item in soup.find_all('p'):
         if ':' in item.text and '[' in item.text:
-            s = item.text.split(":")
-            name = s[0]
+            # Some documents have timestamp before the name and others do not
+            if item.text.find('[') > item.text.find(':'):
+                s = item.text.split(":")
+                name_first = True
+            else:
+                s = item.text.split(']')[1].split(':')
+                name_first = False
+            name = s[0].strip()
             names.append(name)
         conversation.extend([item.text])
     interviewers = list(OrderedDict.fromkeys(names).keys())
     conversation = " ".join(conversation)
-    return {'interviewers': interviewers, 'names': names, 'conversation': conversation}
+    return name_first, {'interviewers': interviewers, 'names': names, 'conversation': conversation}
 
 
-def process(interviewers, names, conversation):
-    if len(interviewers) != 2:
-        return None
-    string = f"(?:{interviewers[0]}|{interviewers[1]}):\s*\[\d{{2}}:\d{{2}}:\d{{2}}\]\s*"
+def process(interviewers, names, conversation, name_first=True):
+    if name_first:
+        string = f"(?:{interviewers[0]}|{interviewers[1]}):\s*\[\d{{2}}:\d{{2}}:\d{{2}}\]\s*"
+    else:
+        string = f'\[\d{{2}}:\d{{2}}:\d{{2}}\]\s*(?:{interviewers[0]}|{interviewers[1]}):\s*'
+        # string = f"(?:\s*\[\d{{2}}:\d{{2}}:\d{{2}}\]\s*:{interviewers[0]}|{interviewers[1]}):"
+
     paragraphs = re.split(string, conversation)
     transcript = []
     # Want to skip the introduction
     for n, p in zip(names[1:], paragraphs[2:]):
-        d = {'name': n, 'response': p}
+        d = {'name': n, 'response': p.strip()}
         transcript.append(d)
 
     return transcript
@@ -57,13 +66,18 @@ def transform_html_to_json():
     bucket = 'scrape-projects'
     for file in list_files(bucket, path='colossus-transcripts/html/'):
         file_name = file['Key'].split('/')[-1].replace('.html', '')
+        if _check_exists(file_name, bucket=bucket, extension='json'):
+            continue
         html = read_in_file(bucket, file['Key'])
         soup = BeautifulSoup(html, 'html.parser')
-        parsed = parse(soup)
-        transcript = process(parsed['interviewers'], parsed['names'], parsed['conversation'])
-        if transcript is None:
-            logger.warning(f"Skipping {file_name}")
+        name_first, parsed = parse(soup)
+
+        if len(parsed['interviewers']) != 2:
+            logger.error(f"3 or more people in interview, skipping {file_name}")
             continue
+
+        transcript = process(parsed['interviewers'], parsed['names'], parsed['conversation'], name_first=name_first)
+        logger.warning(f"uploading {file_name}")
         upload_html(json.dumps(transcript), bucket=bucket, name=file_name, extension='json')
 
 

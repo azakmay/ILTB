@@ -45,13 +45,13 @@ class ILTBSelectors:
     EPISODE_DIV_XPATH = '//*[@id="q-app"]/div/div[1]/main/div/div/div/div/div[2]/div/div[1]/div[{div_number}]/div/div[1]/div[2]/div[2]'
 
 
-def _check_exists(episode_title: str, bucket=None) -> bool:
+def _check_exists(episode_title: str, bucket=None, extension='.html') -> bool:
     """
     Check if the episode has already been scraped
     :param episode_title: The title of the episode
     :return: True if the episode has already been scraped, False otherwise
     """
-    path = create_s3_path(name=episode_title, bucket=bucket)
+    path = create_s3_path(name=episode_title, bucket=bucket, extension=extension)
     return wr.s3.does_object_exist(path)
 
 
@@ -128,7 +128,7 @@ def main():
     scraper = ILTBScraper()
     if not scraper.is_logged_in():
         scraper.login()
-    pages = scraper.generate_pages_to_visit()
+    pages = scraper.generate_pages_to_visit(start=14)
     for page in pages:
         scraper.get_episode_pages(page)
 
