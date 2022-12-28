@@ -1,8 +1,14 @@
+import json
+import logging
 import re
 from collections import OrderedDict
 
 import boto3
 from bs4 import BeautifulSoup
+
+from itlb_scraper import upload_html
+
+logger = logging.getLogger(__name__)
 
 
 def read_in_file(bucket, path):
@@ -54,7 +60,10 @@ def transform_html_to_json():
         soup = BeautifulSoup(html, 'html.parser')
         parsed = parse(soup)
         transcript = process(parsed['interviewers'], parsed['names'], parsed['conversation'])
-        print(transcript)
+        if transcript is None:
+            continue
+        file_name = file['Key'].split('/')[-1].replace('.html', '')
+        upload_html(json.dumps(transcript), bucket=bucket, name=file_name, extension='json')
 
 
 if __name__ == '__main__':

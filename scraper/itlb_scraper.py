@@ -17,15 +17,17 @@ BUCKET = os.getenv('DATA_BUCKET')
 SLEEP_TIME = 5
 
 
-def create_s3_path(name):
-    bucket = f"s3://{BUCKET}/"
-    path = bucket + f"colossus-transcripts/html/{name}.html"
+def create_s3_path(bucket=None, name=None, extension='html'):
+    if bucket is None:
+        bucket = BUCKET
+    bucket = f"s3://{bucket}/"
+    path = bucket + f"colossus-transcripts/{extension}/{name}.{extension}"
     return path
 
 
-def upload_html(content, name):
-    path = create_s3_path(name)
-    with tempfile.NamedTemporaryFile('wb', suffix='.html', delete=False) as temp:
+def upload_html(content, bucket=None, name=None, extension='html'):
+    path = create_s3_path(bucket, name, extension=extension)
+    with tempfile.NamedTemporaryFile('wb', suffix="." + extension, delete=False) as temp:
         temp.write(content.encode())
         wr.s3.upload(temp.name, path)
 
