@@ -56,13 +56,14 @@ def process(interviewers, names, conversation):
 def transform_html_to_json():
     bucket = 'scrape-projects'
     for file in list_files(bucket, path='colossus-transcripts/html/'):
+        file_name = file['Key'].split('/')[-1].replace('.html', '')
         html = read_in_file(bucket, file['Key'])
         soup = BeautifulSoup(html, 'html.parser')
         parsed = parse(soup)
         transcript = process(parsed['interviewers'], parsed['names'], parsed['conversation'])
         if transcript is None:
+            logger.warning(f"Skipping {file_name}")
             continue
-        file_name = file['Key'].split('/')[-1].replace('.html', '')
         upload_html(json.dumps(transcript), bucket=bucket, name=file_name, extension='json')
 
 
