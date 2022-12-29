@@ -45,7 +45,7 @@ class ILTBSelectors:
     EPISODE_DIV_XPATH = '//*[@id="q-app"]/div/div[1]/main/div/div/div/div/div[2]/div/div[1]/div[{div_number}]/div/div[1]/div[2]/div[2]'
 
 
-def _check_exists(episode_title: str, bucket=None, extension='.html') -> bool:
+def _check_exists(episode_title: str, bucket=None, extension='html') -> bool:
     """
     Check if the episode has already been scraped
     :param episode_title: The title of the episode
@@ -114,6 +114,7 @@ class ILTBScraper:
                 logger.warning("Already scraped %s", episode_title)
                 continue
             element.click()
+            # Sleep and give the page a second to load before downloading
             time.sleep(SLEEP_TIME)
             upload_html(self.driver.page_source, name=episode_title)
 
@@ -124,11 +125,11 @@ class ILTBScraper:
         return episode_link
 
 
-def main():
+def main(start=1):
     scraper = ILTBScraper()
     if not scraper.is_logged_in():
         scraper.login()
-    pages = scraper.generate_pages_to_visit(start=14)
+    pages = scraper.generate_pages_to_visit(start=start)
     for page in pages:
         scraper.get_episode_pages(page)
 

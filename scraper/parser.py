@@ -66,7 +66,9 @@ def transform_html_to_json():
     bucket = 'scrape-projects'
     for file in list_files(bucket, path='colossus-transcripts/html/'):
         file_name = file['Key'].split('/')[-1].replace('.html', '')
+        logger.warning(f"processing {file_name}")
         if _check_exists(file_name, bucket=bucket, extension='json'):
+            logger.warning(f"skipping {file_name}")
             continue
         html = read_in_file(bucket, file['Key'])
         soup = BeautifulSoup(html, 'html.parser')
