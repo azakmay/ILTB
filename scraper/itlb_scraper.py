@@ -25,7 +25,7 @@ def create_s3_path(bucket=None, name=None, extension='html'):
     return path
 
 
-def upload_html(content, bucket=None, name=None, extension='html'):
+def upload_file(content: str, bucket: str = None, name: str = None, extension: str = 'html'):
     path = create_s3_path(bucket, name, extension=extension)
     with tempfile.NamedTemporaryFile('wb', suffix="." + extension, delete=False) as temp:
         temp.write(content.encode())
@@ -116,7 +116,7 @@ class ILTBScraper:
             element.click()
             # Sleep and give the page a second to load before downloading
             time.sleep(SLEEP_TIME)
-            upload_html(self.driver.page_source, name=episode_title)
+            upload_file(self.driver.page_source, name=episode_title)
 
             episode_link.append(self.driver.current_url)
             self.driver.get(page)
